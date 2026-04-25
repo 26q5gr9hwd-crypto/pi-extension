@@ -8,6 +8,7 @@
  * - Skips auto-detection for subagent sessions
  */
 
+import { readFileSync } from "node:fs";
 import * as path from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import {
@@ -23,6 +24,20 @@ import { NAME_STATUS_KEY } from "./utils/status-keys.ts";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
+const AUTO_NAME_MODEL_SETTING = "AutoNameModel";
+const DEFAULT_AUTO_NAME_MODEL = "mistralai/mistral-nemo";
+
+function readAutoNameModelSetting(cwd: string): string {
+	try {
+		const settingsPath = path.join(cwd, ".pi", "settings.json");
+		const settings = JSON.parse(readFileSync(settingsPath, "utf8")) as Record<string, unknown>;
+		const configured = settings[AUTO_NAME_MODEL_SETTING];
+		return typeof configured === "string" && configured.trim() ? configured.trim() : DEFAULT_AUTO_NAME_MODEL;
+	} catch {
+		return DEFAULT_AUTO_NAME_MODEL;
+	}
+}
+
 function isSubagentSession(ctx: ExtensionContext): boolean {
 	const sessionFilePath = extractSessionFilePath(ctx.sessionManager);
 	return isSubagentSessionPath(sessionFilePath);
@@ -32,6 +47,7 @@ async function detectNameFromMessage(userMessage: string, ctx: ExtensionContext)
 	return generateShortLabel(ctx, {
 		systemPrompt: NAME_SYSTEM_PROMPT,
 		prompt: buildNameContext(userMessage),
+		modelReference: readAutoNameModelSetting(ctx.cwd),
 		extractText: extractNameFromResult,
 	});
 }

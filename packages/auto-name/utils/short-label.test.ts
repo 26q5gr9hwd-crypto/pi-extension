@@ -72,6 +72,40 @@ describe("generateShortLabel", () => {
 		expect(completeSimple).toHaveBeenCalledTimes(1);
 	});
 
+	it("uses AutoNameModel-compatible model references before falling back to ctx.model", async () => {
+		const configuredModel = { id: "mistralai/mistral-nemo" } as NonNullable<ShortLabelContext["model"]>;
+		vi.mocked(completeSimple).mockResolvedValue({
+			stopReason: "stop",
+			content: [{ type: "text", text: "Configured model" }],
+		} as CompleteSimpleResult);
+
+		const label = await generateShortLabel(
+			{
+				model,
+				modelRegistry: {
+					find: (_provider, _modelId) => undefined,
+					getAll: () => [configuredModel, model],
+					getApiKeyAndHeaders: async (selectedModel) => ({
+						ok: selectedModel === configuredModel,
+						apiKey: "secret",
+					}),
+				},
+			},
+			{
+				systemPrompt: "system",
+				prompt: "prompt",
+				modelReference: "mistralai/mistral-nemo",
+			},
+		);
+
+		expect(label).toBe("Configured model");
+		expect(completeSimple).toHaveBeenCalledWith(
+			configuredModel,
+			expect.anything(),
+			expect.objectContaining({ apiKey: "secret" }),
+		);
+	});
+
 	it("ignores incomplete model responses", async () => {
 		vi.mocked(completeSimple).mockResolvedValue({
 			stopReason: "length",

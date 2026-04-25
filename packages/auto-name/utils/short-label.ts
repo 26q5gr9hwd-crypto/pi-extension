@@ -13,6 +13,8 @@ export type ShortLabelContext = {
 	model?: SummaryModel;
 	modelRegistry?: {
 		getApiKeyAndHeaders: (model: SummaryModel) => Promise<AuthResult>;
+		find?: (provider: string, modelId: string) => SummaryModel | undefined;
+		getAll?: () => SummaryModel[];
 	};
 };
 
@@ -21,6 +23,7 @@ export type GenerateShortLabelOptions = {
 	prompt: string;
 	maxTokens?: number;
 	timeoutMs?: number;
+	modelReference?: string;
 	extractText?: (content: SummaryResult["content"]) => string;
 };
 
@@ -32,8 +35,27 @@ function defaultExtractText(content: SummaryResult["content"]): string {
 		.trim();
 }
 
+function resolveConfiguredModel(ctx: ShortLabelContext, modelReference: string | undefined): SummaryModel | undefined {
+	const trimmed = modelReference?.trim();
+	if (!trimmed || !ctx.modelRegistry) return undefined;
+
+	const slashIndex = trimmed.indexOf("/");
+	if (slashIndex > 0 && slashIndex < trimmed.length - 1 && ctx.modelRegistry.find) {
+		const provider = trimmed.slice(0, slashIndex);
+		const modelId = trimmed.slice(slashIndex + 1);
+		const model = ctx.modelRegistry.find(provider, modelId);
+		if (model) return model;
+	}
+
+	const models = ctx.modelRegistry.getAll?.() ?? [];
+	const exactMatches = models.filter((model) => model.id === trimmed);
+	if (exactMatches.length === 1) return exactMatches[0];
+
+	return undefined;
+}
+
 export async function generateShortLabel(ctx: ShortLabelContext, options: GenerateShortLabelOptions): Promise<string> {
-	const model = ctx.model;
+	const model = resolveConfiguredModel(ctx, options.modelReference) ?? ctx.model;
 	if (!model || !ctx.modelRegistry) return "";
 
 	const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
