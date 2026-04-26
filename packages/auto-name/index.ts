@@ -8,7 +8,8 @@
  * - Skips auto-detection for subagent sessions
  */
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
 import * as path from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import {
@@ -27,15 +28,34 @@ import { NAME_STATUS_KEY } from "./utils/status-keys.ts";
 const AUTO_NAME_MODEL_SETTING = "AutoNameModel";
 const DEFAULT_AUTO_NAME_MODEL = "mistralai/mistral-nemo";
 
-function readAutoNameModelSetting(cwd: string): string {
+function getGlobalSettingsPath(): string {
+	const envAgentDir = process.env.PI_CODING_AGENT_DIR;
+	if (envAgentDir?.trim()) {
+		const expanded = envAgentDir.startsWith("~/") ? path.join(homedir(), envAgentDir.slice(2)) : envAgentDir;
+		return path.join(expanded, "settings.json");
+	}
+
+	return path.join(homedir(), ".pi", "agent", "settings.json");
+}
+
+function readSettingFromFile(settingsPath: string): string | undefined {
+	if (!existsSync(settingsPath)) return undefined;
+
 	try {
-		const settingsPath = path.join(cwd, ".pi", "settings.json");
 		const settings = JSON.parse(readFileSync(settingsPath, "utf8")) as Record<string, unknown>;
 		const configured = settings[AUTO_NAME_MODEL_SETTING];
-		return typeof configured === "string" && configured.trim() ? configured.trim() : DEFAULT_AUTO_NAME_MODEL;
+		return typeof configured === "string" && configured.trim() ? configured.trim() : undefined;
 	} catch {
-		return DEFAULT_AUTO_NAME_MODEL;
+		return undefined;
 	}
+}
+
+function readAutoNameModelSetting(cwd: string): string {
+	return (
+		readSettingFromFile(path.join(cwd, ".pi", "settings.json")) ??
+		readSettingFromFile(getGlobalSettingsPath()) ??
+		DEFAULT_AUTO_NAME_MODEL
+	);
 }
 
 function isSubagentSession(ctx: ExtensionContext): boolean {
@@ -47,7 +67,7 @@ async function detectNameFromMessage(userMessage: string, ctx: ExtensionContext)
 	return generateShortLabel(ctx, {
 		systemPrompt: NAME_SYSTEM_PROMPT,
 		prompt: buildNameContext(userMessage),
-		modelReference: readAutoNameModelSetting(ctx.cwd),
+		modelReference: readAutoNameModelSetting(ctx.cwd ?? process.cwd()),
 		extractText: extractNameFromResult,
 	});
 }

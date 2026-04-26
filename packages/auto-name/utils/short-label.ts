@@ -39,10 +39,10 @@ function resolveConfiguredModel(ctx: ShortLabelContext, modelReference: string |
 	const trimmed = modelReference?.trim();
 	if (!trimmed || !ctx.modelRegistry) return undefined;
 
-	const slashIndex = trimmed.indexOf("/");
-	if (slashIndex > 0 && slashIndex < trimmed.length - 1 && ctx.modelRegistry.find) {
-		const provider = trimmed.slice(0, slashIndex);
-		const modelId = trimmed.slice(slashIndex + 1);
+	const explicitSeparatorIndex = trimmed.indexOf(":") > 0 ? trimmed.indexOf(":") : trimmed.indexOf("/");
+	if (explicitSeparatorIndex > 0 && explicitSeparatorIndex < trimmed.length - 1 && ctx.modelRegistry.find) {
+		const provider = trimmed.slice(0, explicitSeparatorIndex);
+		const modelId = trimmed.slice(explicitSeparatorIndex + 1);
 		const model = ctx.modelRegistry.find(provider, modelId);
 		if (model) return model;
 	}

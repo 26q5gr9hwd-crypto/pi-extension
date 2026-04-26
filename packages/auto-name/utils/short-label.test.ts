@@ -104,6 +104,28 @@ describe("generateShortLabel", () => {
 			expect.anything(),
 			expect.objectContaining({ apiKey: "secret" }),
 		);
+
+		vi.mocked(completeSimple).mockClear();
+		await generateShortLabel(
+			{
+				model,
+				modelRegistry: {
+					find: (provider, modelId) =>
+						provider === "openrouter" && modelId === "mistralai/mistral-nemo" ? configuredModel : undefined,
+					getApiKeyAndHeaders: async () => ({ ok: true, apiKey: "secret" }),
+				},
+			},
+			{
+				systemPrompt: "system",
+				prompt: "prompt",
+				modelReference: "openrouter:mistralai/mistral-nemo",
+			},
+		);
+		expect(completeSimple).toHaveBeenCalledWith(
+			configuredModel,
+			expect.anything(),
+			expect.objectContaining({ apiKey: "secret" }),
+		);
 	});
 
 	it("ignores incomplete model responses", async () => {
