@@ -1,13 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-	buildNameContext,
-	extractNameFromResult,
 	extractSessionFilePath,
 	formatNameStatus,
 	isSubagentSessionPath,
-	isSuccessfulResult,
-	MAX_MESSAGE_LENGTH,
-	MAX_NAME_LENGTH,
 	MAX_STATUS_CHARS,
 	SUBAGENT_SESSION_DIR,
 } from "./auto-name-utils.ts";
@@ -41,26 +36,5 @@ describe("auto-name utils", () => {
 		const formatted = formatNameStatus(noisy);
 		expect(formatted).not.toContain("\n");
 		expect(formatted.length).toBeLessThanOrEqual(MAX_STATUS_CHARS);
-	});
-
-	it("builds the name context with truncation", () => {
-		const message = "m".repeat(MAX_MESSAGE_LENGTH + 25);
-		const context = buildNameContext(message);
-		expect(context).toBe(`사용자 메시지: ${message.slice(0, MAX_MESSAGE_LENGTH)}`);
-	});
-
-	it("extracts text-only content and clips the result length", () => {
-		const result = extractNameFromResult([
-			{ type: "text", text: `  ${"a".repeat(MAX_NAME_LENGTH)} ` },
-			{ type: "image", text: "ignored" },
-			{ type: "text", text: "suffix" },
-		]);
-		expect(result).toBe(`${"a".repeat(MAX_NAME_LENGTH)}`);
-	});
-
-	it("accepts only fully stopped model results", () => {
-		expect(isSuccessfulResult("stop")).toBe(true);
-		expect(isSuccessfulResult("length")).toBe(false);
-		expect(isSuccessfulResult(undefined)).toBe(false);
 	});
 });

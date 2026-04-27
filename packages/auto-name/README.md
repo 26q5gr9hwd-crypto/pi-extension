@@ -1,28 +1,44 @@
 # @ryan_nookpi/pi-extension-auto-name
 
-This extension automatically names a pi session based on the first user message.
+This extension automatically names a pi session based on the first user message — **without an LLM**.
 
-It helps you quickly recognize what each session is about when many tasks are open at once.
+It derives the title via simple string processing: strip markdown noise, cut at the first sentence boundary, hard-cap at 30 characters. No API key, no model, no latency, no cost.
 
 ## Install
 
-```bash
-pi install npm:@ryan_nookpi/pi-extension-auto-name
-```
+    pi install npm:@ryan_nookpi/pi-extension-auto-name
 
 ## Great for
 
 - quickly understanding what a session is about
 - avoiding manual naming with `/name`
 - showing the current task clearly in the terminal title and status area
+- zero-cost, zero-latency naming with no LLM dependency
 
 ## How it works
 
-- It reads the first user message and generates a short session name.
-- The generated name is applied to the session name, status area, and terminal title.
-- If a session already has a name, it does not overwrite it.
-- It skips automatic naming for subagent sessions.
+- Reads the first user message from the `before_agent_start` event.
+- Cleans markdown noise:
+  - strips fenced and inline code blocks
+  - strips leading list / heading / quote markers
+  - collapses whitespace
+- Cuts at the first natural clause boundary: sentence-ender (`. ! ?`), colon, semicolon, em/en dash, or `" - "` separator.
+- Hard-caps at 30 characters with an ellipsis (`…`).
+- Applies the result via `pi.setSessionName()` and updates the terminal title (`π - {name} - {cwd}`) and status footer.
+- Never overwrites an existing session name.
+- Skips automatic naming for subagent sessions.
 
-## Example
+## Manual override
 
-If the first request is something like `Prepare a pre-release checklist`, pi can automatically turn that into a short session title.
+Use pi's built-in `/name <new title>` command to override the auto-derived name at any time.
+
+## Examples
+
+| First message                                          | Resulting title         |
+| ------------------------------------------------------ | ----------------------- |
+| `Ship the next release`                                | `Ship the next release` |
+| `Fix login bug. Then deploy to staging.`               | `Fix login bug`         |
+| `VPS deploy: rebuild and restart`                      | `VPS deploy`            |
+| `Refactor parser — split lexer`                        | `Refactor parser`       |
+| `Update ` + "`package.json`" + ` and rebuild`          | `Update and rebuild`    |
+| 200 characters of `x`                                  | `xxx…` (30 chars total) |
